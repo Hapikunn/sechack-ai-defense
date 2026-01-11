@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SecHack Dashboard</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0e27;
+            color: #00ff00;
+            padding: 40px;
+            margin: 0;
+        }
+        h1 {
+            text-align: center;
+            font-size: 48px;
+            text-shadow: 0 0 20px #00ff00;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .status-box {
+            background: #1a1f3a;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+        }
+        .metric {
+            display: inline-block;
+            margin: 20px 40px;
+        }
+        .metric-value {
+            font-size: 64px;
+            font-weight: bold;
+            color: #00ff00;
+        }
+        .metric-label {
+            font-size: 18px;
+            color: #6f9;
+        }
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #00ff00;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ SecHack AI Defense System</h1>
+        
+        <div class="status-box">
+            <h2>
+                <span class="status-indicator"></span>
+                System Status: <span id="health">ONLINE</span>
+            </h2>
+        </div>
+        
+        <div class="status-box">
+            <div class="metric">
+                <div class="metric-label">Attacks Detected</div>
+                <div class="metric-value" id="attacks">0</div>
+            </div>
+            
+            <div class="metric">
+                <div class="metric-label">Threats Blocked</div>
+                <div class="metric-value" id="blocked">0</div>
+            </div>
+        </div>
+        
+        <div class="status-box">
+            <h3>📊 Live Activity Log</h3>
+            <div id="log" style="font-size: 14px; line-height: 1.8;">
+                <p>[SYSTEM] Dashboard initialized...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 1秒ごとにデータを更新
+        setInterval(() => {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('attacks').textContent = data.attacks_detected;
+                    document.getElementById('blocked').textContent = data.threats_blocked;
+                    document.getElementById('health').textContent = data.system_health;
+                    
+                    // ログに追加
+                    const log = document.getElementById('log');
+                    const time = new Date().toLocaleTimeString();
+                    log.innerHTML = `<p>[${time}] Monitoring... ${data.attacks_detected} attacks detected</p>` + log.innerHTML;
+                    
+                    // ログが長すぎたら削除
+                    if (log.children.length > 10) {
+                        log.removeChild(log.lastChild);
+                    }
+                });
+        }, 1000);
+    </script>
+</body>
+</html>
+```
+
+### **ファイル10: phase_space/requirements.txt**
+```
+Flask==3.0.0

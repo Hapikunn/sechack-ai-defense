@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # データベース
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: sechack_db
+    environment:
+      POSTGRES_DB: sechack
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data  
+      - ./shared/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # メッセージキュー
+  redis:
+    image: redis:7-alpine
+    container_name: sechack_redis
+    ports:
+      - "6379:6379"
+
+  # AIレッドチーム
+  red-team:
+    build:
+      context: .
+      dockerfile: red_team/Dockerfile
+    container_name: sechack_red_team
+    depends_on:
+      - redis
+      - timescaledb  # ← 追加
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DB_URL=postgresql://user:password@timescaledb:5432/sechack  # ← 追加
+    volumes:
+      - ./shared:/app/shared
+
+  blue-ai:
+    build:
+      context: .
+      dockerfile: blue_ai/Dockerfile
+    container_name: sechack_blue_ai
+    depends_on:
+      - redis
+      - timescaledb  # ← 追加
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DB_URL=postgresql://user:password@timescaledb:5432/sechack  # ← 追加
+    volumes:
+      - ./shared:/app/shared
+
+  # ダッシュボード
+  phase-space:
+    build:
+      context: .                    # ← 重要：ルートディレクトリをコンテキストに
+      dockerfile: phase_space/Dockerfile
+    container_name: sechack_dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_URL=postgresql://user:password@timescaledb:5432/sechack

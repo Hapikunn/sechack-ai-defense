@@ -1,0 +1,31 @@
+# データベースファイル（自動生成される）
+data/
+
+# Python関連
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# 環境変数（秘密情報が入る可能性）
+.env
+
+# Docker関連
+.docker/
+
+# IDE関連
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS関連
+.DS_Store
+Thumbs.db
