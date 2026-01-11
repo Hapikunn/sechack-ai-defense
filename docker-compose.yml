@@ -30,10 +30,13 @@ services:
     container_name: sechack_red_team
     depends_on:
       - redis
-      - timescaledb  # ← 追加
+      - timescaledb
+    env_file:
+      - .env  # ← 追加
     environment:
       - REDIS_URL=redis://redis:6379
-      - DB_URL=postgresql://user:password@timescaledb:5432/sechack  # ← 追加
+      - DB_URL=postgresql://user:password@timescaledb:5432/sechack
+      - OPENAI_API_KEY=${OPENAI_API_KEY}  # ← 変更
     volumes:
       - ./shared:/app/shared
 
