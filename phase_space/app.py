@@ -4,12 +4,16 @@ import os
 
 sys.path.append('/app/shared')
 from database import Database
+from phase_space import PhaseSpaceModel
 
 app = Flask(__name__)
 
 # データベース接続
 db_url = os.getenv('DB_URL', 'postgresql://user:password@timescaledb:5432/sechack')
 db = Database(db_url)
+
+# 相空間モデル
+phase_space = PhaseSpaceModel(db)
 
 @app.route('/')
 def index():
@@ -36,15 +40,33 @@ def status():
             'system_health': 'DB Error'
         })
 
-@app.route('/api/recent')
-def recent_attacks():
-    """最近の攻撃を取得"""
+@app.route('/api/phase-space')
+def get_phase_space():
+    """相空間モデルの現在状態"""
     try:
-        recent = db.get_recent_attacks(limit=10)
-        return jsonify({'attacks': [dict(r) for r in recent]})
+        state = phase_space.get_current_state()
+        return jsonify(state)
     except Exception as e:
-        print(f"⚠️ DB Error: {e}")
-        return jsonify({'attacks': []})
+        print(f"⚠️ Phase Space Error: {e}")
+        return jsonify({
+            'D': 0.5,
+            'R': 0.5,
+            'V': 0.5,
+            'status': 'ERROR',
+            'color': '#808080',
+            'timestamp': None
+        })
+
+@app.route('/api/phase-space/history')
+def get_phase_space_history():
+    """相空間の履歴"""
+    try:
+        minutes = int(request.args.get('minutes', 5))
+        history = phase_space.get_history(minutes=minutes)
+        return jsonify(history)
+    except Exception as e:
+        print(f"⚠️ History Error: {e}")
+        return jsonify([])
 
 if __name__ == '__main__':
     print("🌌 Dashboard Starting on http://localhost:3000")

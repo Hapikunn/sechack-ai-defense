@@ -35,35 +35,63 @@ class Database:
         """攻撃データを保存"""
         with self.get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO attack_events (
-                        event_id, timestamp, session_id, user_id, command, attack_number
-                    ) VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (event_id) DO NOTHING
-                    """,
-                    (
-                        attack_data.get('id', 'unknown'),
-                        attack_data.get('timestamp'),
-                        'session_001',  # 後で動的に変更可能
-                        attack_data.get('user'),
-                        attack_data.get('command'),
-                        attack_data.get('id')
+                try:
+                    # idを文字列に変換
+                    event_id = str(attack_data.get('id', 'unknown'))
+                    
+                    print(f"[DB] Inserting attack with event_id={event_id}")
+                    
+                    cursor.execute(
+                        """
+                        INSERT INTO attack_events (
+                            event_id, timestamp, session_id, user_id, command, attack_number
+                        ) VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (event_id) DO NOTHING
+                        """,
+                        (
+                            event_id,  # ← 文字列に統一
+                            attack_data.get('timestamp'),
+                            'session_001',
+                            attack_data.get('user'),
+                            attack_data.get('command'),
+                            attack_data.get('id')
+                        )
                     )
-                )
+                    
+                    print(f"[DB] ✓ Attack saved: event_id={event_id}")
+                    
+                except Exception as e:
+                    print(f"[DB] ✗ Error saving attack: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise
     
     def save_detection(self, event_id, is_dangerous, keyword=None, score=0.0):
         """検知結果を保存"""
         with self.get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO detection_results (
-                        event_id, timestamp, is_dangerous, detected_keyword, anomaly_score
-                    ) VALUES (%s, NOW(), %s, %s, %s)
-                    """,
-                    (event_id, is_dangerous, keyword, score)
-                )
+                try:
+                    # event_idを文字列に変換（重要！）
+                    event_id_str = str(event_id)
+
+                    print(f"[DB] Inserting detection for event_id={event_id_str}")
+
+                    cursor.execute(
+                        """
+                        INSERT INTO detection_results (
+                            event_id, timestamp, is_dangerous, detected_keyword, anomaly_score
+                        ) VALUES (%s, NOW(), %s, %s, %s)
+                        """,
+                        (event_id_str, is_dangerous, keyword, score)
+                    )
+
+                    print(f"[DB] ✓ Detection saved: event_id={event_id_str}, is_dangerous={is_dangerous}")
+
+                except Exception as e:
+                    print(f"[DB] ✗ Error saving detection: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise  # エラーを上に伝える
     
     def get_attack_count(self):
         """攻撃の総数を取得"""
@@ -88,6 +116,27 @@ class Database:
                 cursor.execute(
                     """
                     SELECT a.*, d.is_dangerous, d.detected_keyword
+                    FROM attack_events a
+                    LEFT JOIN detection_results d ON a.event_id = d.event_id
+                    ORDER BY a.timestamp DESC
+                    LIMIT %s
+                    """,
+                    (limit,)
+                )
+                return cursor.fetchall()
+    
+    def get_recent_attacks(self, limit=50):
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT 
+                        a.event_id,
+                        a.timestamp,
+                        a.command,
+                        d.is_dangerous,
+                        d.detected_keyword,
+                        d.anomaly_score
                     FROM attack_events a
                     LEFT JOIN detection_results d ON a.event_id = d.event_id
                     ORDER BY a.timestamp DESC

@@ -1,116 +1,381 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-    <title>SecHack Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecHack AI Defense - Phase Space Model</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
             font-family: 'Courier New', monospace;
             background: #0a0e27;
             color: #00ff00;
-            padding: 40px;
-            margin: 0;
+            padding: 20px;
         }
-        h1 {
-            text-align: center;
-            font-size: 48px;
-            text-shadow: 0 0 20px #00ff00;
-        }
+        
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
-        .status-box {
+        
+        h1 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
             background: #1a1f3a;
             border: 2px solid #00ff00;
             border-radius: 10px;
-            padding: 30px;
-            margin: 20px 0;
+            padding: 20px;
             box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
         }
-        .metric {
-            display: inline-block;
-            margin: 20px 40px;
+        
+        .metric-title {
+            font-size: 24px;
+            margin-bottom: 15px;
+            text-align: center;
         }
+        
         .metric-value {
-            font-size: 64px;
+            font-size: 48px;
+            text-align: center;
+            margin: 20px 0;
             font-weight: bold;
-            color: #00ff00;
         }
-        .metric-label {
+        
+        .metric-desc {
+            font-size: 14px;
+            text-align: center;
+            opacity: 0.7;
+        }
+        
+        .gauge-container {
+            width: 100%;
+            height: 40px;
+            background: #0a0e27;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 15px 0;
+            border: 1px solid #00ff00;
+        }
+        
+        .gauge-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00);
+            transition: width 0.5s ease;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+        
+        .status-panel {
+            background: #1a1f3a;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 0 40px rgba(0, 255, 0, 0.4);
+        }
+        
+        .status-icon {
+            font-size: 72px;
+            margin-bottom: 20px;
+        }
+        
+        .status-text {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .status-detail {
             font-size: 18px;
-            color: #6f9;
+            opacity: 0.8;
         }
-        .status-indicator {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #00ff00;
-            display: inline-block;
-            animation: pulse 2s infinite;
+        
+        .chart-container {
+            background: #1a1f3a;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+        
+        .chart-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        canvas {
+            max-height: 400px;
+        }
+        
+        .phase-space-3d {
+            background: #1a1f3a;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            min-height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.5; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🛡️ SecHack AI Defense System</h1>
+        <h1>🛡️ SecHack AI Defense System - Phase Space Model</h1>
         
-        <div class="status-box">
-            <h2>
-                <span class="status-indicator"></span>
-                System Status: <span id="health">ONLINE</span>
-            </h2>
-        </div>
-        
-        <div class="status-box">
-            <div class="metric">
-                <div class="metric-label">Attacks Detected</div>
-                <div class="metric-value" id="attacks">0</div>
+        <!-- 相空間指標 -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">D (拡散性)</div>
+                <div class="gauge-container">
+                    <div class="gauge-fill" id="d-gauge" style="width: 50%"></div>
+                </div>
+                <div class="metric-value" id="d-value">0.500</div>
+                <div class="metric-desc">
+                    コマンドの多様性<br>
+                    低: 単調 ／ 高: 探索的
+                </div>
             </div>
             
-            <div class="metric">
-                <div class="metric-label">Threats Blocked</div>
-                <div class="metric-value" id="blocked">0</div>
+            <div class="metric-card">
+                <div class="metric-title">R (リズム)</div>
+                <div class="gauge-container">
+                    <div class="gauge-fill" id="r-gauge" style="width: 50%"></div>
+                </div>
+                <div class="metric-value" id="r-value">0.500</div>
+                <div class="metric-desc">
+                    実行間隔の周期性<br>
+                    低: 自動化 ／ 高: 人間的
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-title">V (制御可能性)</div>
+                <div class="gauge-container">
+                    <div class="gauge-fill" id="v-gauge" style="width: 50%"></div>
+                </div>
+                <div class="metric-value" id="v-value">0.500</div>
+                <div class="metric-desc">
+                    システムの安定性<br>
+                    低: 危険 ／ 高: 安全
+                </div>
             </div>
         </div>
         
-        <div class="status-box">
-            <h3>📊 Live Activity Log</h3>
-            <div id="log" style="font-size: 14px; line-height: 1.8;">
-                <p>[SYSTEM] Dashboard initialized...</p>
-            </div>
+        <!-- システム状態 -->
+        <div class="status-panel" id="status-panel">
+            <div class="status-icon" id="status-icon">●</div>
+            <div class="status-text" id="status-text">INITIALIZING</div>
+            <div class="status-detail" id="status-detail">システムを初期化中...</div>
+        </div>
+        
+        <!-- 相空間図（2D簡易版） -->
+        <div class="chart-container">
+            <div class="chart-title">相空間ダイアグラム (D vs V)</div>
+            <canvas id="phase-space-chart"></canvas>
+        </div>
+        
+        <!-- V の時系列 -->
+        <div class="chart-container">
+            <div class="chart-title">V (制御可能性) の推移</div>
+            <canvas id="timeline-chart"></canvas>
         </div>
     </div>
     
     <script>
-        // 1秒ごとにデータを更新
-        setInterval(() => {
-            fetch('/api/status')
+        // 相空間チャート
+        const phaseSpaceCtx = document.getElementById('phase-space-chart').getContext('2d');
+        const phaseSpaceChart = new Chart(phaseSpaceCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: '現在位置',
+                    data: [{x: 0.5, y: 0.5}],
+                    backgroundColor: '#00ff00',
+                    pointRadius: 10,
+                    pointHoverRadius: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: { display: true, text: 'D (拡散性)', color: '#00ff00' },
+                        min: 0,
+                        max: 1,
+                        ticks: { color: '#00ff00' },
+                        grid: { color: 'rgba(0, 255, 0, 0.2)' }
+                    },
+                    y: {
+                        title: { display: true, text: 'V (制御可能性)', color: '#00ff00' },
+                        min: 0,
+                        max: 1,
+                        ticks: { color: '#00ff00' },
+                        grid: { color: 'rgba(0, 255, 0, 0.2)' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#00ff00' } },
+                    annotation: {
+                        annotations: {
+                            safeLine: {
+                                type: 'line',
+                                yMin: 0.7,
+                                yMax: 0.7,
+                                borderColor: '#00ff00',
+                                borderWidth: 2,
+                                label: {
+                                    content: '安全閾値',
+                                    enabled: true,
+                                    color: '#00ff00'
+                                }
+                            },
+                            dangerLine: {
+                                type: 'line',
+                                yMin: 0.3,
+                                yMax: 0.3,
+                                borderColor: '#ff0000',
+                                borderWidth: 2,
+                                label: {
+                                    content: '危険閾値',
+                                    enabled: true,
+                                    color: '#ff0000'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 時系列チャート
+        const timelineCtx = document.getElementById('timeline-chart').getContext('2d');
+        const timelineChart = new Chart(timelineCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'V (制御可能性)',
+                    data: [],
+                    borderColor: '#00ff00',
+                    backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        ticks: { color: '#00ff00' },
+                        grid: { color: 'rgba(0, 255, 0, 0.2)' }
+                    },
+                    y: {
+                        min: 0,
+                        max: 1,
+                        ticks: { color: '#00ff00' },
+                        grid: { color: 'rgba(0, 255, 0, 0.2)' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#00ff00' } }
+                }
+            }
+        });
+        
+        // データ更新
+        function updateDashboard() {
+            fetch('/api/phase-space')
                 .then(r => r.json())
                 .then(data => {
-                    document.getElementById('attacks').textContent = data.attacks_detected;
-                    document.getElementById('blocked').textContent = data.threats_blocked;
-                    document.getElementById('health').textContent = data.system_health;
+                    // ゲージ更新
+                    document.getElementById('d-gauge').style.width = (data.D * 100) + '%';
+                    document.getElementById('r-gauge').style.width = (data.R * 100) + '%';
+                    document.getElementById('v-gauge').style.width = (data.V * 100) + '%';
                     
-                    // ログに追加
-                    const log = document.getElementById('log');
-                    const time = new Date().toLocaleTimeString();
-                    log.innerHTML = `<p>[${time}] Monitoring... ${data.attacks_detected} attacks detected</p>` + log.innerHTML;
+                    // 値更新
+                    document.getElementById('d-value').textContent = data.D.toFixed(3);
+                    document.getElementById('r-value').textContent = data.R.toFixed(3);
+                    document.getElementById('v-value').textContent = data.V.toFixed(3);
                     
-                    // ログが長すぎたら削除
-                    if (log.children.length > 10) {
-                        log.removeChild(log.lastChild);
+                    // 状態パネル更新
+                    const statusPanel = document.getElementById('status-panel');
+                    const statusIcon = document.getElementById('status-icon');
+                    const statusText = document.getElementById('status-text');
+                    const statusDetail = document.getElementById('status-detail');
+                    
+                    statusPanel.style.borderColor = data.color;
+                    statusIcon.style.color = data.color;
+                    statusText.textContent = data.status;
+                    statusText.style.color = data.color;
+                    
+                    if (data.status === 'SAFE') {
+                        statusIcon.textContent = '✓';
+                        statusDetail.textContent = 'システムは安全領域にあります';
+                        statusIcon.classList.remove('blink');
+                    } else if (data.status === 'WARNING') {
+                        statusIcon.textContent = '⚠';
+                        statusDetail.textContent = '警戒レベル - 監視を強化中';
+                        statusIcon.classList.add('blink');
+                    } else {
+                        statusIcon.textContent = '✖';
+                        statusDetail.textContent = '危険レベル - 対応が必要です';
+                        statusIcon.classList.add('blink');
                     }
-                });
-        }, 1000);
+                    
+                    // 相空間チャート更新
+                    phaseSpaceChart.data.datasets[0].data = [{x: data.D, y: data.V}];
+                    phaseSpaceChart.data.datasets[0].backgroundColor = data.color;
+                    phaseSpaceChart.update();
+                    
+                    // 時系列チャート更新
+                    const now = new Date().toLocaleTimeString();
+                    timelineChart.data.labels.push(now);
+                    timelineChart.data.datasets[0].data.push(data.V);
+                    
+                    // 最新20点のみ保持
+                    if (timelineChart.data.labels.length > 20) {
+                        timelineChart.data.labels.shift();
+                        timelineChart.data.datasets[0].data.shift();
+                    }
+                    
+                    timelineChart.update();
+                })
+                .catch(err => console.error('Error:', err));
+        }
+        
+        // 1秒ごとに更新
+        setInterval(updateDashboard, 1000);
+        updateDashboard();
     </script>
 </body>
 </html>
-```
-
-### **ファイル10: phase_space/requirements.txt**
-```
-Flask==3.0.0

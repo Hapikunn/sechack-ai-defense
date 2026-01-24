@@ -1,12 +1,24 @@
 import sys
 import os
+import time
 
 sys.path.append('/app/shared')
 from messaging import EventBus
 from database import Database
 
-# 危険なキーワード
-DANGEROUS_KEYWORDS = ['Recurse', 'Invoke-WebRequest', 'net user', 'password']
+DANGEROUS_KEYWORDS = [
+    'Recurse',
+    'Invoke-WebRequest',
+    'net user',
+    'password',
+    'Credential',
+    'Out-File',
+    'Select-Object',
+    'Compress-Archive',
+    'Include',
+    'ErrorAction',
+    'SilentlyContinue',
+]
 
 def is_dangerous(command):
     """コマンドが危険かチェック"""
@@ -18,16 +30,20 @@ def is_dangerous(command):
 def main():
     print("🔵 Blue AI Starting...")
     
-    # Redis接続
     redis_url = os.getenv('REDIS_URL', 'redis://redis:6379')
     event_bus = EventBus(redis_url)
     
-    # データベース接続
     db_url = os.getenv('DB_URL', 'postgresql://user:password@timescaledb:5432/sechack')
     db = Database(db_url)
     
+    print("👂 Listening for attacks...")
+    
     for attack in event_bus.receive_attacks():
-        print(f"\n📥 Received: {attack['command']}")
+        print(f"\n📥 Received: {attack['command'][:60]}...")
+        
+        # ⏳ CRITICAL: Red Teamのデータベース保存を待つ
+        # これがないと外部キー制約違反が発生する
+        time.sleep(0.5)  # 500ms待機
         
         # 危険性をチェック
         dangerous, keyword = is_dangerous(attack['command'])
@@ -43,12 +59,13 @@ def main():
         # データベースに保存
         try:
             db.save_detection(
-                event_id=attack['id'],
+                event_id=str(attack.get('id')),
                 is_dangerous=dangerous,
                 keyword=keyword,
                 score=score
             )
             print(f"💾 Detection result saved to database")
+            
         except Exception as e:
             print(f"⚠️ DB Error: {e}")
 
