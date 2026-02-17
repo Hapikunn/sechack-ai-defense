@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poster Data Export - Evolutionary Metrics</title>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .controls label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .controls select {
+            padding: 8px 15px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-right: 20px;
+        }
+        
+        .controls button {
+            background: #667eea;
+            color: white;
+            padding: 10px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .controls button:hover {
+            background: #5568d3;
+        }
+        
+        .section {
+            background: white;
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .graph-container {
+            margin: 20px 0;
+            min-height: 400px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .stat-card .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .export-btn {
+            background: #28a745;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 5px;
+            transition: background 0.3s;
+        }
+        
+        .export-btn:hover {
+            background: #218838;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Poster Data Export - Evolutionary Metrics</h1>
+        
+        <div class="controls">
+            <label for="domain-select">Domain:</label>
+            <select id="domain-select">
+                <option value="powershell">PowerShell</option>
+                <option value="webapp">Web Application</option>
+                <option value="iot">IoT</option>
+                <option value="cloud">Cloud</option>
+            </select>
+            
+            <button onclick="loadAllData()">🔄 Refresh Data</button>
+            <button onclick="exportAllData()">💾 Export All (CSV + PNG)</button>
+        </div>
+        
+        <!-- RQ1 Section -->
+        <div class="section" id="rq1-section">
+            <h2>RQ1: Co-evolution Results</h2>
+            
+            <div class="stats-grid" id="rq1-stats">
+                <div class="loading">Loading...</div>
+            </div>
+            
+            <div class="graph-container" id="rq1-timeline"></div>
+            <div class="graph-container" id="rq1-generation-hist"></div>
+            
+            <button class="export-btn" onclick="exportRQ1Data()">
+                📊 Export RQ1 Data
+            </button>
+        </div>
+        
+        <!-- RQ2 Section -->
+        <div class="section" id="rq2-section">
+            <h2>RQ2: Novelty Assessment Results</h2>
+            
+            <div class="stats-grid" id="rq2-stats">
+                <div class="loading">Loading...</div>
+            </div>
+            
+            <div class="graph-container" id="rq2-novelty-dist"></div>
+            <div class="graph-container" id="rq2-av-detection"></div>
+            
+            <button class="export-btn" onclick="exportRQ2Data()">
+                📊 Export RQ2 Data
+            </button>
+        </div>
+        
+        <!-- RQ3 Section -->
+        <div class="section" id="rq3-section">
+            <h2>RQ3: Domain Comparison Results</h2>
+            
+            <div class="stats-grid" id="rq3-stats">
+                <div class="loading">Loading...</div>
+            </div>
+            
+            <div class="graph-container" id="rq3-comparison"></div>
+            <div class="graph-container" id="rq3-tree-shapes"></div>
+            
+            <button class="export-btn" onclick="exportRQ3Data()">
+                📊 Export RQ3 Data
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        let currentData = {
+            rq1: null,
+            rq2: null,
+            rq3: null
+        };
+        
+        // データ読み込み
+        async function loadAllData() {
+            const domain = document.getElementById('domain-select').value;
+            
+            try {
+                // RQ1データ取得
+                const rq1Response = await fetch(`/api/rq1/coevolution?domain=${domain}`);
+                currentData.rq1 = await rq1Response.json();
+                displayRQ1Data(currentData.rq1);
+                
+                // RQ2データ取得
+                const rq2Response = await fetch(`/api/rq2/novelty?domain=${domain}`);
+                currentData.rq2 = await rq2Response.json();
+                displayRQ2Data(currentData.rq2);
+                
+                // RQ3データ取得
+                const rq3Response = await fetch('/api/rq3/domain_comparison');
+                currentData.rq3 = await rq3Response.json();
+                displayRQ3Data(currentData.rq3);
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                alert('Failed to load data: ' + error.message);
+            }
+        }
+        
+        // RQ1データ表示
+        function displayRQ1Data(data) {
+            // 統計カード表示
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="label">Phase 1 Detection Rate</div>
+                    <div class="value">${(data.coevolution.phase_1_detection_rate * 100).toFixed(1)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Phase 2 Detection Rate</div>
+                    <div class="value">${(data.coevolution.phase_2_detection_rate * 100).toFixed(1)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Phase 3 Detection Rate</div>
+                    <div class="value">${(data.coevolution.phase_3_detection_rate * 100).toFixed(1)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Max Generation</div>
+                    <div class="value">${data.generations.max_generation}</div>
+                </div>
+            `;
+            document.getElementById('rq1-stats').innerHTML = statsHTML;
+            
+            // タイムライングラフ（モックデータ）
+            const timelineData = [{
+                x: [0, 6, 12, 24, 48, 72],
+                y: [
+                    data.coevolution.phase_1_detection_rate,
+                    data.coevolution.phase_2_detection_rate,
+                    data.coevolution.phase_2_detection_rate * 0.9,
+                    data.coevolution.phase_3_detection_rate,
+                    data.coevolution.phase_3_detection_rate * 0.95,
+                    data.coevolution.phase_3_detection_rate * 0.9
+                ],
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Detection Rate',
+                line: { color: '#667eea', width: 3 },
+                marker: { size: 10 }
+            }];
+            
+            const timelineLayout = {
+                title: 'Detection Rate Over Time',
+                xaxis: { title: 'Elapsed Hours' },
+                yaxis: { title: 'Detection Rate', range: [0, 1] },
+                height: 400
+            };
+            
+            Plotly.newPlot('rq1-timeline', timelineData, timelineLayout);
+            
+            // 世代ヒストグラム
+            const genDist = data.generations.generation_distribution;
+            const genData = [{
+                x: Object.keys(genDist),
+                y: Object.values(genDist),
+                type: 'bar',
+                marker: { color: '#764ba2' }
+            }];
+            
+            const genLayout = {
+                title: 'Generation Distribution',
+                xaxis: { title: 'Generation Number' },
+                yaxis: { title: 'Attack Count' },
+                height: 400
+            };
+            
+            Plotly.newPlot('rq1-generation-hist', genData, genLayout);
+        }
+        
+        // RQ2データ表示
+        function displayRQ2Data(data) {
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="label">Total Novel Attacks</div>
+                    <div class="value">${data.total_novel}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Avg Novelty Score</div>
+                    <div class="value">${(data.novelty_score_stats.mean * 100).toFixed(1)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Zero-Day Count</div>
+                    <div class="value">${data.av_detection_stats['0_of_5'] || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Max Novelty Score</div>
+                    <div class="value">${(data.novelty_score_stats.max * 100).toFixed(1)}%</div>
+                </div>
+            `;
+            document.getElementById('rq2-stats').innerHTML = statsHTML;
+            
+            // AV検知グラフ
+            const avData = [{
+                x: Object.keys(data.av_detection_stats),
+                y: Object.values(data.av_detection_stats),
+                type: 'bar',
+                marker: { color: '#28a745' }
+            }];
+            
+            const avLayout = {
+                title: 'AV Detection Distribution',
+                xaxis: { title: 'Detection Count' },
+                yaxis: { title: 'Number of Attacks' },
+                height: 400
+            };
+            
+            Plotly.newPlot('rq2-av-detection', avData, avLayout);
+        }
+        
+        // RQ3データ表示
+        function displayRQ3Data(data) {
+            const domains = Object.keys(data.domains);
+            const statsHTML = domains.map(domain => {
+                const d = data.domains[domain];
+                return `
+                    <div class="stat-card">
+                        <div class="label">${domain.toUpperCase()}</div>
+                        <div class="value">${d.novel || 0}</div>
+                        <div class="label">Novel Attacks</div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('rq3-stats').innerHTML = statsHTML;
+            
+            // ドメイン比較グラフ
+            const comparisonData = [{
+                x: domains,
+                y: domains.map(d => data.domains[d].generation_rate || 0),
+                type: 'bar',
+                name: 'Generation Rate',
+                marker: { color: '#667eea' }
+            }];
+            
+            const comparisonLayout = {
+                title: 'Domain Comparison - Generation Rate',
+                xaxis: { title: 'Domain' },
+                yaxis: { title: 'Generation Rate' },
+                height: 400
+            };
+            
+            Plotly.newPlot('rq3-comparison', comparisonData, comparisonLayout);
+        }
+        
+        // エクスポート機能
+        function exportRQ1Data() {
+            Plotly.downloadImage('rq1-timeline', {
+                format: 'png',
+                width: 1200,
+                height: 600,
+                filename: 'rq1_detection_timeline'
+            });
+        }
+        
+        function exportRQ2Data() {
+            Plotly.downloadImage('rq2-av-detection', {
+                format: 'png',
+                width: 1200,
+                height: 600,
+                filename: 'rq2_av_detection'
+            });
+        }
+        
+        function exportRQ3Data() {
+            Plotly.downloadImage('rq3-comparison', {
+                format: 'png',
+                width: 1200,
+                height: 600,
+                filename: 'rq3_domain_comparison'
+            });
+        }
+        
+        function exportAllData() {
+            exportRQ1Data();
+            setTimeout(() => exportRQ2Data(), 1000);
+            setTimeout(() => exportRQ3Data(), 2000);
+        }
+        
+        // ページロード時にデータ取得
+        window.addEventListener('load', loadAllData);
+        
+        // ドメイン変更時に再読み込み
+        document.getElementById('domain-select').addEventListener('change', loadAllData);
+    </script>
+</body>
+</html>
